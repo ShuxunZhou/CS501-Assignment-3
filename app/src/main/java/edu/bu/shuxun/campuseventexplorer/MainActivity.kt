@@ -1,5 +1,6 @@
 package edu.bu.shuxun.campuseventexplorer
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -24,11 +25,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import edu.bu.shuxun.campuseventexplorer.ui.theme.CampusEventExplorerTheme
-
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,14 +54,63 @@ class MainActivity : ComponentActivity() {
 fun CampusEventApp() {
     var searchQuery by rememberSaveable { mutableStateOf("") }
 
-    EventListScreen(
-        events = CampusEventData.events,
-        query = searchQuery,
-        onQueryChange = { searchQuery = it },
-        onEventSelected = {
-            // Navigation will be added in the next step.
+    val navController = rememberNavController()
+    val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    NavHost(
+        navController = navController,
+        startDestination = EventList
+    ) {
+        composable<EventList> {
+            EventListScreen(
+                events = CampusEventData.events,
+                query = searchQuery,
+                onQueryChange = { searchQuery = it },
+                onEventSelected = { eventId ->
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+
+                    navController.navigate(
+                        EventDetail(eventId = eventId)
+                    ) {
+                        launchSingleTop = true
+                    }
+                }
+            )
         }
-    )
+
+        composable<EventDetail> { backStackEntry ->
+            val route = backStackEntry.toRoute<EventDetail>()
+
+            val event = CampusEventData.events.firstOrNull {
+                it.id == route.eventId
+            }
+
+            EventDetailScreen(
+                event = event,
+                onBack = {
+                    navController.popBackStack()
+                },
+                onShare = {
+                    if (event != null) {
+                        val shareText =
+                            "${event.title} — ${event.time} — ${event.location}"
+
+                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, shareText)
+                        }
+
+                        context.startActivity(
+                            Intent.createChooser(sendIntent, null)
+                        )
+                    }
+                }
+            )
+        }
+    }
 }
 
 @Composable
@@ -69,7 +125,7 @@ fun EventListScreen(
 
     val filteredEvents = events.filter { event ->
         event.title.contains(searchText, ignoreCase = true) ||
-                event.category.contains(searchText, ignoreCase = true)
+            event.category.contains(searchText, ignoreCase = true)
     }
 
     Scaffold(

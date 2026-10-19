@@ -35,7 +35,7 @@ object CampusEventData {
             category = "Food",
             location = "GSU",
             time = "October 22, 2026, 4:00 PM",
-            description = "Get something good in the evening." +
+            description = "Get something good in the evening. " +
                     "Please get the food in right period."
         ),
         CampusEvent(
